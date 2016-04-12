@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<script>document.write('<script src="http://' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1"></' + 'script>')</script>
+
+		<title>Multitenancy with a Python web framework supported by PostgreSQL</title>
+
+		<meta name="description" content="Multitenancy with a Python web framework supported by PostgreSQ">
+		<meta name="author" content="Neven Munđar">
+
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/moon.css" id="theme">
+
+		<!-- Code syntax highlighting -->
+		<!-- <link rel="stylesheet" href="lib/css/zenburn.css"> -->
+		<link rel="stylesheet" href="lib/css/obsidian.css">
+
+		<style type="text/css">
+		.reveal {font-size: 32px;}
+		.reveal section img { background:none; border:none; box-shadow:none; }
+		.reveal li {font-size: 0.8em; }
+		</style>
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+				<section>
+					<h1>Multitenancy</h1>
+					<h3>with a Python web framework supported by PostgreSQL</h3>
+					<p>
+						<small>by <a href="#">Neven Munđar</a></small>
+					</p>
+				</section>
+
+
+				<section>
+					<h3>Multitenancy</h3>
+					<p>Software architecture</p>
+					<p>Single instance of software runs on a server and serves multiple tenants.</p>
+					<p>Each tenant has an access to a dedicated share of the instance.</p>
+					<ul>
+						<li>Data</li>
+						<li>Configuration</li>
+						<li>User management</li>
+						<li>Custom functionality</li>
+					</ul>
+
+					<aside class="notes">
+						<strong>Softverska arhitektura</strong>, znaci nekakav <b>koncept strukture aplikacije i njihovog nacina kreiranja</b><br>
+						<b>jedna instanca</b> aplikacije je pokrenuta na serveru i posluzuje <b>vise tenanta</b> a svaki tenant ima odvojeni, <b>zasebni</b>, dio instance poput podataka, konfiguracije, user managementa, ponesto svoje posebne funkcionalnost
+					</aside>
+				</section>
+
+
+				<section>
+					<h3>Tenant</h3>
+					<p>User or group of users with the access to application instance with specific privileges.</p>
+					<img width=400  
+						src="img/genericbuilding2.png">
+
+					<aside class="notes">
+						Direktan prijevod bi bio stanar. Inace nisam fan građevinskih metafora u softverskom svijetu ali to i nije tako los prijevod tog koncepta ako za analogiju stanara uzmemo stanare u zgradi koji imaju svoje odvojene stanove ali dijele instancu jedne zgrade.
+					</aside>
+				</section>
+
+
+				<section>
+					<h3>SaaS</h3>
+					<p>Google docs</p>
+					<p>Salesforce CRM</p>
+					<p>WP Engine</p>
+
+
+					<aside class="notes">
+						Useri ovih aplikacija dobe pristup instanci softvera na kojoj postoji jos tisuce drugih takvih usera koji ne moraju biti svjesni jedni drugih. Njima je njihova aplikacija nesto za sto su se prijavili, mozda platili, dobili licencu i pristup, ponesto si izcustomizirali svojim potrebama i potpuno su nesvjesni da instanca aplikacije koju koriste jednako tako posluzuje druge 'nezavisne' korisnike s kojima dijele isti operativni sustav, hardver, pa cak i bazu podataka.
+					</aside>
+				</section>
+
+
+				<section>
+					<h3>A bit smaller</h3>
+					<p>Gym membership CRM</p>
+					<p>White label IT webshop</p>
+
+
+					<aside class="notes">
+						CRM za manageanje membera teretana u nekom gradu ili npr. web shopovi za prodaju informatickog hardvera ne moraju biti hostani za svaki ducan posebno na svom serveru nego mogu svi zajedno koristiti nekakvu multitenantsku instancu 'web shop' aplikacije. Sudeci po nekolicini poprilicno generickih shopova koje sam susreo na nabava.net mozda cak i jesu, a ako nisu eto "startupa u ideja fazi". Al to ne znaci da je multitenantska aplikacija genericka i rigidna.
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h3>Personal example</h3>
+					<img width=400 src="img/charitystorm.svg">
+					<br>
+					<img width=400 src="img/astorm.svg">
+					<br>
+					<img width=400 src="img/hlf.png">
+
+					<aside class="notes">
+					 	<b>Kinda</b>Crowdfunding-as-a-service 
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h3>Customisable</h3>
+					    <p>UI and branding</p>
+					    <p>Workflow and business rules</p>
+					    <p>Access Rights</p>
+					    <p>Data model</p>
+
+					<aside class="notes">
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h3>Why multitenancy?</h3>
+					<p>Leveraging Economy of Scale</p>
+					<img width=500 src="img/economyofscale.gif">
+
+					<aside class="notes">
+						Premjesta se odgovornost za tehnolosku infrastrukturu i management iste iz klijenta na pruzatelja usluge. <br>
+						Pruzatelj usluge moze pruziti uslugu po nizoj cijeni zbog specijalizacije i ekonomije razmjera.<br>
+						Aplikacija moze posluzivati npr. 50 srednje velikih klijenata sto znaci da svaki klijent ima dijelic troska cijelokupnog servera. Ista takva aplikacija instalirana lokalno za svakog klijenta posebno bi zahtjevala kompletan trosak servera.
+						<br>
+						U nasem slucaju je to otprilike nekakva ogromna torta u layerima tehnologija gdje se mi na vrhu nalazimo kao nekakav SaaS koji koristi PaaS (Heroku) koji koristi IaaS (Amazon).
+						<br>
+						Konkretno u nasem primjeru placamo jednu heroku instancu za 3 razlicita sitea.  Između ostalog to znaci da ne placamo svaki od onih skupih heroku pluginova posebno za svakog klijenta :)
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h2>How?</h2>
+					<h3>Multi-Tenant Data Architecture</h3>
+					<a href="https://msdn.microsoft.com/en-us/library/aa479086.aspx">https://msdn.microsoft.com/en-us/library/aa479086.aspx</a>
+					<p>Three Approaches to Managing Multi-Tenant Data</p>
+					<ul>
+						<li>Separate Databases</li>
+						<li>Shared Database, Separate Schemas</li>
+						<li>Shared Database, Shared Schema</li>
+					</ul>
+
+					<aside class="notes">
+						Izdvojene baze podataka za svakog korisnika
+    					<br>
+					    Jedna baza podataka koja se dijeli medju korisnicima ali koristi izdvojenu schemu za svakog korisnika. Scheme cu objasniti kasnije, za sada ih zamislite kao prefix ili namespace za tablice kojim se odredjuje kojem tenantu odredjena tablica pripada.
+						<br>
+					    Jedna baza podataka koja se dijeli medju korisnicima ali se i schema dijeli medju korisnicima.
+					    <br>
+					    Poblize cu objasniti svaki pristup.
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Separate Databases</h3>
+					<img src="img/separatedboriginal.png">
+					<p>Computing resources and code is shared</p>
+					<p>Databases are separate</p>
+					<p>Data is completely isolated</p>
+
+					<aside class="notes">
+						Racunalni resursi (cpu, ram) i aplikacijski kod se dijele medju tenantima, ali svaki tenant ima svoju bazu podataka kompletno izdvojenu od ostalih tenanta.
+
+					    Baze su izdvojene i podaci su kompletno izolirani
+
+					    Dobra strana ovog pristupa je da je relativno lako prosiriti data model pojedinacnog tenanta i u slucaju nekakvog faila restoreat bazu iz backupa. Negativna strana je nesto veci trosak odrzavanja i maintenanca svake pojedine baze 
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Shared Database, Separate Schemas</h3>
+					<img height=250 src="img/sharedseparateoriginal.png">
+					<p>Each tenant having its own set of tables</p>
+					<p>Tables are grouped into a schema created for the tenant</p>
+					<p>SchemaName.TableName convention</p>
+					<p>Data is still isolated but not completely as in previous approach</p>
+
+					<aside class="notes">
+						Ako svaki tenant ima svoju bazu, restore backupa za jednog tenanta znaci restore baze iz zadnjeg backupa.<br>
+						No kada tenanti djele bazu podataka, restore baze bi znaci prebrisivanje podataka od svih tenanta.<br>
+						Ovisno o vrsti faila to je mozda neizbjezno, no ako se radi o failu na setu podataka od samo jednog tenanta onda je potrebno restorati zadnji  backup bazu na temp server pa importati tablice samo tog jednog tenanta na produkcijski server, uglavnom, kompliciranija i duza procedura.
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Shared Database, Shared Schema</h3>
+					<img width=600 src="img/sharedalloriginal.png">
+					<p>All tenants are on the same database, schema and set of tables</p>
+					<p>Table includes records from multiple tenants associated by Tenant ID</p>
+
+					<aside class="notes">
+						Najmanji trosak, najveci broj tenanta na najmanjem mogucem broju servera.<br>
+						Jako limitirana izolacija podataka<br>
+						Puno veci trud u razvoju aplikacije <br>
+						Puno tezi restore ako se samo pojedini rekordi u bazi trebaju restoreati
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Choosing an Approach</h3>
+
+					<h4>Economic</h4>
+					<p>Shared approach has higher initial costs larger development effort because of complex architecture but lower operational cost.</p>
+
+					<h4>Security</h4>
+					<p>Physical isolation can provide security with less effort</p>
+
+
+					<aside class="notes">
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Choosing an Approach</h3>
+					<h4>Tenant expectations</h4>
+					<p>
+						How many tenants, how much storage per tenant, how many concurrent users?
+					</p>
+
+					<h4>Regulatory</h4>
+					<p>
+        				Companies, organizations, and governments are often subject to regulatory law.
+					</p>
+					<p>
+        				Laws affect security and record storage needs.<br>(e.g. Safe Harbor).
+					</p>
+
+
+					<aside class="notes">
+						Nas custom backup zbog automatiziranog heroku backupa na americke servere
+					</aside>
+					
+				</section>
+
+				<section>
+					<h3>Choosing an Approach</h3>
+					<h4>Skill set</h4>
+					<p>Multitenant architecture and SaaS apps requires some specific expertise.</p>
+					<p>Shift of thinking in three interrelated areas:</p>
+					<ul>
+						<li>Business model</li>
+						<li>Application architecture</li>
+						<li>Operational structure</li>
+					</ul>
+					<p>People involved in all three areas need to acquire necessary knowledge.</p>
+
+
+					<aside class="notes">
+						Moje iskustvo sa upoznavanjem novih devova s aplikacijom
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Choosing the middle ground</h3>
+					<p><strong> Python, Ruby, Node.js</strong></p>
+					<p>Shared Database, Separate Schemas</p>
+					<p>Compromise between simplicity and performance.</p>
+
+
+					<aside class="notes">
+						U researchu koji sam napravio, Python, Ruby i NodeJS zajednice dominantno odabiru Shared Database, Separate Schemas pristup. Python i Ruby za izbor baze dominantno preferiraju PostgreSQL koji podrzava Schema feature vec skoro 14 godina. Koncept Schema postoji i u MySQLu, ali s njim sam jako slabo upoznat no pretpostavljam da moguce je napraviti istu funkcionalnost kao i sa Postgresom.<br>
+						U Node.js svijetu je najpopularnije koristiti MongoDB bazu koja u kombinaciji s nekoliko paketa (mongoose i mongoose-multitenant) s kojima se dobije slicna mogucnost multitenancya preko Schema.
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h3>PostreSQL Schemas</h3>
+					<a href="http://www.postgresql.org/docs/current/static/ddl-schemas.html">http://www.postgresql.org/docs/current/static/ddl-schemas.html</a>
+					<p>Supported since version 7.3 (end of 2002).</p>
+					<p>A database contains one or more named schemas.</p>
+					<p>Schemas can contain tables.</p>
+					<p>Schemas also contain other kinds of named objects, including data types, functions, and operators.</p>
+
+
+					<aside class="notes">
+						Scheme su podrzane od verzije 7.3<br>
+						Baza podataka moze sadrzavati jednu ili vise schema, a scheme sadrze tablice, funkcije, operatore i ostalo...
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h3>PostreSQL Schemas</h3>
+					<p><strong>Public Schema</strong></p>
+					<p>Tables created without specifying any schema names, by default, are automatically put into a schema named "public".</p>
+					<p>Every new database contains such a schema.</p>
+
+
+					<aside class="notes">
+						Kad se kaze da baza podataka moze sadrzavati jednu ili vise schema to znaci da po defaultu svaka nova baza sadrzi jednu schemu zvanu "public".
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h3>PostreSQL Schemas</h3>
+					
+					<p>Creating a Schema</p>
+					<pre><code class="sql" data-trim>
+						CREATE SCHEMA myschema;
+					</code></pre>
+
+					<p>Qualified name</p>
+					<pre><code class="sql" data-trim >
+						schema.table
+					</code></pre>
+
+					<p>Create table</p>
+					<pre><code class="sql" data-trim >
+CREATE TABLE myschema.mytable (
+    ...
+);					</code></pre>
+
+					<aside class="notes">
+					Konacno malo koda!<br>
+					Schema se kreira izvrsavanjem sql naredbe CREATE SCHEMA kojoj se da ime scheme.
+					<br>
+					Jednoznacno ime tablice se oznacava pisanjem scheme i tablice dot notacijom i moze se koristitit kod pisanja querya, npr query za kreiranje tablice.
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Postresql Schemas Search path</h3>
+					
+					<p>Set search path</p>
+					<pre><code class="sql" data-trim>
+						SET search_path TO myschema;
+					</code></pre>
+
+					<p>Set search path as list</p>
+					<pre><code class="sql" data-trim >
+						SET search_path TO myschema,public;
+					</code></pre>
+
+					<aside class="notes">
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Django, SQLAlchemy, Ruby</h3>
+
+					<p>Django</p>
+					<pre><code class="python" data-trim >    
+cursor = super(DatabaseWrapper, self)._cursor()
+search_paths = [self.schema_name, public_schema_name]
+cursor.execute('SET search_path = {0}'.format(','.join(search_paths)))
+					</code></pre>
+
+					<p>SQLAlchemy</p>
+					<pre><code class="" data-trim >
+from sqlalchemy import Table, MetaData, create_engine
+engine = create_engine("postgresql://user:pass@localhost/test")
+with engine.connect() as conn:
+    conn.execute("SET search_path TO test_schema, public")
+    meta = MetaData()
+    referring = Table('referring', meta, autoload=True, autoload_with=conn)
+					</code></pre>
+
+					<p>Ruby</p>
+					<pre><code class="ruby" data-trim >
+def set_search_path(name, include_public = true)
+    path_parts = [name.to_s, ("public" if include_public)].compact
+    ActiveRecord::Base.connection.schema_search_path = path_parts.join(",")
+end
+					</code></pre>
+
+					<aside class="notes">
+						Librariji koji koriste scheme u postgresu cesto koriste funkcionalnost postavljanja search patha na razini neke kontrolne strukture, npr connectiona, koja komunicira s bazom. 
+						<br>
+						U djangu se to npr postize nasljedjivanjem postgres backenda i overrideanjem cursor metode koja postavi zeljene search pathove. 
+						<br>
+						U sql alchemy primjeru je postavljanje search patha dio APIa connection objekta
+						<br>
+						U Rubyu je slicna situacija i search path se postavlja kao propety connection objekta.
+						<br>
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>Django</h3>
+					<p>Django Multitenancy</p>
+					<a href="https://www.djangopackages.com/grids/g/multi-tenancy/">https://www.djangopackages.com/grids/g/multi-tenancy/</a>
+					<ol>
+						<li>
+							<p>
+								<strong>django-tenant-schemas</strong><br>
+						        <a href="https://github.com/bernardopires/django-tenant-schemas">https://github.com/bernardopires/django-tenant-schemas</a><br>
+						        Tenant support for Django using PostgreSQL schemas.<br>
+							</p>
+						</li>
+
+						<li>
+							<p>
+								<strong>django-tenants</strong><br>
+						        <a href="https://github.com/tomturner/django-tenants">https://github.com/tomturner/django-tenants</a><br>
+						        Tenant support for Django using PostgreSQL schemas.<br>
+						        <q>"I would like to thank two of the original authors of this project:<br>
+						        Bernardo Pires under the name django-tenant-schemas. <br>
+						        Vlada Macek under the name of django-schemata."</q>
+							</p>
+						</li>
+					</ol>
+
+					<aside class="notes">
+						Umjesto da se to rucno radi...<br>
+						Za potrebe upoznavanja s konceptom multitenancya nije toliko bitno koji se od ova dva paketa odabere jer im je API gotovo identican, ali mislim da je dobro biti svjestan trenutne situacije i kretanja na ovom polju. Ja osobno trenutno koristim django-tenant-schemas koji je svoje zlatno doba imao u doba Southa ali je tranzicija na verzije nakon 1.6 je bila relativno spora. Osim toga sam imao mali issue sa samim maintainerom oko jednog specificnog problema o kojem cu pricati na kraju. Za sada bih rekao da vrijedi drzati oko na oba projekta ali da mi se django-tenants cini kao bolji izbor za novije projekte.
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>django-tenant-schemas: How it works?</h3>
+
+					<p>Tenants are identified via their host name (tenant.domain.com)<br>
+					This information is stored on a table on the public schema.</p>
+
+					<ol>
+						<li>On request the host name is used to match a tenant in the database.</li>
+						<li>If there’s a match, the search path is updated to this tenant’s schema.</li>
+						<li>From now on all queries will take place at the tenant’s schema.</li>
+					</ol>
+
+					<aside class="notes">
+					</aside>
+
+				</section>
+
+
+				<section>
+					<h3>Basic setup</h3>
+					<p>Install</p>
+
+					<pre><code class="bash" data-trim >    
+					pip install django-tenant-schemas
+					</code></pre>
+
+					<p>Settings</p>
+					<pre><code class="python" data-trim >
+# settings.py
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'tenant_schemas.postgresql_backend',
+        # ..
+    }
+}
+
+MIDDLEWARE_CLASSES = (
+    'tenant_schemas.middleware.TenantMiddleware',
+    #...
+)
+
+TEMPLATE_CONTEXT_PROCESSORS = (
+    'django.core.context_processors.request',
+    #...
+)
+
+					</code></pre>
+					<br>
+
+					<aside class="notes">
+					</aside>
+
+				</section>
+
+				<section>
+					<h3>The Tenant Model</h3>
+					<p>Client must be inherited from TenantMixin</p> 
+					<p>Has two required fields: domain_url and schema_name.</p>
+
+
+					<pre><code class="python" data-trim >
+# models.py
+from django.db import models
+from tenant_schemas.models import TenantMixin
+
+class Client(TenantMixin):
+    name = models.CharField(max_length=100)
+    paid_until =  models.DateField()
+    on_trial = models.BooleanField()
+    created_on = models.DateField(auto_now_add=True)
+
+    # default true, schema will be automatically created and synced when it is saved
+    auto_create_schema = True
+
+					</code></pre>
+					<br>
+
+					<pre><code class="bash" data-trim >    
+					python manage.py makemigrations customers
+					</code></pre>
+					<br>
+
+				</section>
+
+				<section>
+					<h3>Tenant and Shared Applications</h3>
+
+					<pre><code class="python" data-trim>
+SHARED_APPS = (
+    'tenant_schemas',  # mandatory
+    'customers',  # you must list the app where your tenant model resides in
+    'django.contrib.contenttypes',
+    # everything below here is optional
+    'django.contrib.auth',
+    'django.contrib.sessions',
+    'django.contrib.admin',
+)
+					</code></pre>
+					<pre><code class="python" data-trim >
+TENANT_APPS = (
+    # The following Django contrib apps must be in TENANT_APPS
+    'django.contrib.contenttypes',
+    # your tenant-specific apps
+    'accounts',
+    'hotels',
+    'houses',
+)
+					</code></pre>
+
+					<aside class="notes">
+					</aside>
+
+
+				</section>
+
+				<section>
+					<h3>Installed apps</h3>
+
+					<pre><code class="python" data-trim >
+INSTALLED_APPS = list(SHARED_APPS) + [
+	app for app in TENANT_APPS if app not in SHARED_APPS
+]
+					</code></pre>
+
+					
+					<pre><code class="python" data-trim >
+TENANT_MODEL = "customers.Client" 
+					</code></pre>
+					
+					<p>Create tables</p>
+
+					<pre><code class="bash" data-trim>
+# Django >= 1.7
+python manage.py migrate_schemas --shared
+
+# Django < 1.7
+python manage.py sync_schemas --shared
+					</code></pre>
+					<br>
+				</section>
+
+				<section>
+					<h3>Creating a tenant</h3>
+					<pre><code class="python" data-trim>
+from customers.models import Client
+
+tenant = Client(
+    domain_url='my-domain.com',
+    schema_name='public',
+    name='Schemas Inc.',
+    paid_until='2016-12-05',
+    on_trial=False
+)
+tenant.save()
+					</code></pre>
+
+					<pre><code class="python" data-trim>
+tenant = Client(
+    domain_url='tenant.my-domain.com',
+    schema_name='tenant1',
+    name='Fonzy Tenant',
+    paid_until='2014-12-05',
+    on_trial=True
+)
+tenant.save()  # migrations of tenant apps automatically called
+					</code></pre>
+					<pre><code class="shell" data-trim>
+./manage.py migrate_schemas --list
+./manage.py migrate_schemas --shared
+./manage.py migrate_schemas --schema=tenant1
+					</code></pre>
+				</section>
+
+				<section>
+					<h3>tenant_command</h3>
+					<p>Wrapper around your command so that it only runs on the schema you specify.</p>
+
+					<pre><code class="shell" data-trim>
+./manage.py tenant_command shell 
+./manage.py tenant_command shell --schema=tenant1
+					</code></pre>
+				</section>
+
+				<section>
+					<h3>Third Party Apps</h3>
+					<p>Celery: tenant-schemas-celery</p>
+					<a href="https://github.com/maciej-gol/tenant-schemas-celery">https://github.com/maciej-gol/tenant-schemas-celery</a>
+					<pre><code class="python" data-trim>
+# settings.py
+from tenant_schemas_celery.app import CeleryApp
+app = CeleryApp()
+# ...
+					</code></pre>
+
+					<pre><code class="python" data-trim>
+from django.db import connection
+from myproject.celery import app
+
+@app.task
+def my_task():
+  print connection.tenant.schema_name
+					</code></pre>
+
+					<p>The schema name will get automatically added to the task's arguments.</p>
+				</section>
+
+				<section>
+					<h3>Third Party Apps - personal experience</h3>
+					<p>Django Addendum</p>
+					<pre><code class="python" data-trim>
+{% load addendum_tags %}
+{% snippet 'home:greeting' %}Hi!{% endsnippet %} {{ user.first_name }}
+					</code></pre>
+					<p>Snippets are cached using a key format: snippet:&lt;snippet_key&gt;</p>
+
+					<p><strong>Argh!</strong></p>
+					<pre><code class="patch" data-trim>
++get_cache_prefix = lambda: 'snippet:'
++if hasattr(settings, 'ADDENDUM_CACHE_PREFIX'):
++    get_cache_prefix = settings.ADDENDUM_CACHE_PREFIX
+					</code></pre>
+
+					<pre><code class="patch" data-trim>
+-snippet = cache.get('snippet:{0}'.format(key))
++cache_key = '{0}:{1}'.format(get_cache_prefix(), key)
++snippet = cache.get(cache_key)
+					</code></pre>
+
+					<pre><code class="python" data-trim>
+def get_addendum_cache_prefix():
+    return 'snippet:%s' % connection.tenant.schema_name
+
+ADDENDUM_CACHE_PREFIX = get_addendum_cache_prefix
+					</code></pre>
+				</section>
+
+
+				<section>
+					<h3>Templates</h3>
+					<p>Multitenant aware filesystem template loader</p>
+					<pre><code class="python" data-trim>
+# settings.py
+TEMPLATE_LOADERS = (
+    'tenant_schemas.template_loaders.FilesystemLoader',
+    'django.template.loaders.filesystem.Loader',
+    'django.template.loaders.app_directories.Loader'
+)
+
+MULTITENANT_TEMPLATE_DIRS = ('templates/',)
+TEMPLATE_DIRS = ('templates/base',)
+					</code></pre>
+				</section>
+
+				<section>
+					<h3>Misc</h3>
+					<p>Schema name as prefix convention for all resources</p>
+					<p>Unit tests</p>
+					<p>...</p>					
+				</section>
+
+				<section>Thank you!</section>
+
+			</div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+
+			// Full list of configuration options available at:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+				// Optional reveal.js plugins
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
